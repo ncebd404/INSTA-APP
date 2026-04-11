@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Instagram Creator Tool</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600&display=swap');
+        
+        body { 
+            font-family: 'Roboto Mono', monospace; 
+            background: #0a0c0b;
+            margin: 0;
+            padding: 0;
+            color: #00d4a5;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.018) 50%, transparent 100%),
+                        linear-gradient(0deg, transparent 0%, rgba(0, 212, 165, 0.012) 50%, transparent 100%);
+            animation: subtleScan 7s linear infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+        @keyframes subtleScan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .container { 
+            background: rgba(12, 15, 14, 0.98);
+            border: 1px solid #d4af37;
+            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.18),
+                        inset 0 0 25px rgba(0, 212, 165, 0.06);
+            width: 100%; 
+            max-width: 400px; 
+            height: 100vh;
+            margin: 0 auto;
+            padding: 22px 18px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            font-size: 1.32rem;
+            margin: 0 0 26px 0;
+            text-align: center;
+            color: #f4e8c1;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+            padding-bottom: 12px;
+            font-weight: 500;
+            text-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+        }
+
+        input, .data-box {
+            width: 100%;
+            height: 52px; /* Fixed height - কখনো পরিবর্তন হবে না */
+            padding: 0 16px;
+            margin-bottom: 17px;
+            border: 1px solid #00d4a5;
+            background: rgba(15, 20, 18, 0.88);
+            color: #e0f7ef;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.97rem;
+            border-radius: 8px;
+            box-sizing: border-box;
+            transition: all 0.25s ease;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.45);
+        }
+        
+        /* Focus শুধু glow ও border color পরিবর্তন — সাইজ একদম fixed */
+        input:focus {
+            border-color: #d4af37;
+            box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.25),
+                        inset 0 3px 10px rgba(0, 0, 0, 0.5);
+            outline: none;
+            /* transform সরিয়ে দেওয়া হয়েছে যাতে সাইজ না কমে */
+        }
+
+        .data-box {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding-left: 18px;
+            border-left: 5px solid #d4af37;
+            background: rgba(14, 18, 16, 0.92);
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.4);
+            transition: all 0.25s ease;
+        }
+        .data-box:hover {
+            background: rgba(20, 26, 23, 0.95);
+            box-shadow: 0 6px 18px rgba(212, 175, 55, 0.22);
+            transform: translateY(-1px);
+            border-left-color: #f4e8c1;
+        }
+        input::placeholder {
+            color: #006b52;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .action-buttons button {
+            flex: 1;
+            height: 48px;
+            font-size: 0.93rem;
+            font-weight: 500;
+            border: 1px solid #d4af37;
+            background: transparent;
+            color: #d4af37;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            letter-spacing: 0.8px;
+        }
+        .action-buttons button:hover {
+            background: linear-gradient(135deg, #d4af37, #f4e8c1);
+            color: #0a0c0b;
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.45);
+            transform: translateY(-2px);
+        }
+        .action-buttons #clearBtn {
+            border-color: #c94d4d;
+            color: #ff9999;
+        }
+        .action-buttons #clearBtn:hover {
+            background: linear-gradient(135deg, #c94d4d, #ff7777);
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(201, 77, 77, 0.4);
+        }
+
+        .save-box {
+            flex: 1;
+            padding: 16px;
+            background: rgba(10, 14, 12, 0.94);
+            border: 1px solid #00d4a5;
+            border-radius: 8px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            white-space: pre;
+            position: relative;
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        .save-box .counter {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            background: linear-gradient(135deg, #d4af37, #f4e8c1);
+            color: #0a0c0b;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            box-shadow: 0 3px 10px rgba(212, 175, 55, 0.35);
+        }
+
+        .message {
+            position: fixed;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 22px;
+            background: rgba(12, 16, 14, 0.96);
+            border-left: 5px solid #d4af37;
+            color: #f4e8c1;
+            border-radius: 8px;
+            font-size: 0.93rem;
+            z-index: 1000;
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
+            animation: toastIn 0.45s ease;
+        }
+        .message.success { border-left-color: #00d4a5; color: #e0f7ef; }
+        .message.error { border-left-color: #c94d4d; color: #ff9999; }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(30px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Instagram Creator Tool</h1>
+
+        <input type="text" id="passwordInput" 
+               placeholder="Enter Password" 
+               value="nirob@20"
+               onclick="copyPassword()">
+
+        <div class="data-box" id="nameBox" onclick="generateName()">
+            Click for Random BD Name
+        </div>
+
+        <div class="data-box" id="usernameBox" onclick="generateUsername()">
+            Click for Username
+        </div>
+
+        <input type="text" id="secretKey" placeholder="Enter 2FA Secret Key">
+
+        <div class="data-box" id="tokenBox">
+            2FA Code will appear here
+        </div>
+
+        <div class="action-buttons">
+            <button onclick="copyAll()">Copy All</button>
+            <button id="clearBtn" onclick="confirmClearAll()">Clear All</button>
+        </div>
+
+        <div class="save-box" id="saveBox">
+            <div id="saveData">Output will be saved here\n(username\tpassword\t2fa_key)</div>
+            <span class="counter" id="dataCounter">0</span>
+        </div>
+    </div>
+
+    <div class="message" id="messageBox"></div>
+
+    <script>
+        // ==================== স্ক্রিপ্ট অংশ (আগের মতোই) ====================
+        let currentFullName = '';
+        let currentUsername = '';
+
+        const bangladeshiNames = [
+            "Nirob Ahmed","Rahim Khan","Karim Hossain","Abdullah Rahman","Mohammad Islam",
+            "Hasan Ali","Md Rakib Chowdhury","Faisal Ahmed","Siam Khan","Tanvir Hossain",
+            "Arif Rahman","Shakil Islam","Imran Ali","Sabbir Ahmed","Rifat Khan",
+            "Ashik Hossain","Jahid Rahman","Sumon Islam","Rony Ali","Pavel Ahmed",
+            "Nazmul Hossain","Shuvo Rahman","Alamgir Khan","Farhan Islam","Saif Ali",
+            "Ripon Ahmed","Mamun Khan","Asif Hossain","Shahin Rahman","Joy Islam",
+            "Prince Ali","Sunny Ahmed","Tushar Khan","Robin Hossain","Mithun Rahman",
+            "Shanto Islam","Badhon Ali","Rayhan Ahmed","Niloy Khan","Arnob Hossain"
+        ];
+
+        function debounce(func, wait) {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+
+        async function copyToClipboard(text, customMsg = "Copied!") {
+            try {
+                await navigator.clipboard.writeText(text);
+                showMessage(customMsg, "success");
+            } catch (e) {
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                ta.style.position = "fixed"; ta.style.left = "-9999px";
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showMessage(customMsg, "success");
+            }
+        }
+
+        function showMessage(text, type = "success") {
+            const msg = document.getElementById('messageBox');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            setTimeout(() => { msg.textContent = ''; msg.className = 'message'; }, 2600);
+        }
+
+        function copyPassword() {
+            const passwordField = document.getElementById('passwordInput');
+            const password = passwordField.value.trim();
+            if (password) {
+                copyToClipboard(password, "Password Copied!");
+            } else {
+                showMessage("No password entered!", "error");
+            }
+        }
+
+        function copyAll() {
+            const data = document.getElementById('saveData').textContent.trim();
+            if (data && !data.includes('Output will be saved here')) {
+                copyToClipboard(data, "All data copied!");
+            } else {
+                showMessage("No data to copy", "error");
+            }
+        }
+
+        function confirmClearAll() {
+            if (confirm("Are you sure you want to delete ALL saved data?\nThis cannot be undone.")) {
+                clearAll();
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('saveData').textContent = 'Output will be saved here\n(username\tpassword\t2fa_key)';
+            document.getElementById('dataCounter').textContent = '0';
+            document.getElementById('nameBox').textContent = 'Click for Random BD Name';
+            document.getElementById('usernameBox').textContent = 'Click for Username';
+            document.getElementById('tokenBox').textContent = '2FA Code will appear here';
+            document.getElementById('secretKey').value = '';
+            currentFullName = '';
+            currentUsername = '';
+            localStorage.removeItem('savedData');
+            showMessage("All data cleared successfully!", "success");
+        }
+
+        function generateName() {
+            const idx = Math.floor(Math.random() * bangladeshiNames.length);
+            currentFullName = bangladeshiNames[idx];
+            document.getElementById('nameBox').textContent = currentFullName;
+            copyToClipboard(currentFullName);
+        }
+
+        function generateUsername() {
+            if (!currentFullName) {
+                showMessage("First generate name!", "error");
+                return;
+            }
+            const parts = currentFullName.split(' ');
+            const first = parts[0];
+            const last = parts[parts.length-1];
+            const digits = Math.floor(100000 + Math.random() * 900000);
+            currentUsername = `${first}_${last}_${digits}`;
+            document.getElementById('usernameBox').textContent = currentUsername;
+            copyToClipboard(currentUsername);
+        }
+
+        async function generate2FA(key) {
+            const password = document.getElementById('passwordInput').value.trim();
+            const tokenBox = document.getElementById('tokenBox');
+            const secretInput = document.getElementById('secretKey');
+            const saveDataEl = document.getElementById('saveData');
+
+            if (!password) return showMessage("Enter password first!", "error");
+            if (!currentUsername) return showMessage("Generate username first!", "error");
+
+            const cleanedKey = key.trim().replace(/\s/g, '');
+            if (!cleanedKey || !/^[A-Z0-9]+$/.test(cleanedKey)) {
+                secretInput.value = '';
+                return;
+            }
+
+            try {
+                const proxy = "https://corsproxy.io/?";
+                const url = `${proxy}https://2fa.live/tok/${cleanedKey}`;
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+                const data = await response.json();
+
+                if (!data || !data.token) throw new Error('No token from API.');
+
+                const code = data.token;
+
+                tokenBox.textContent = code;
+                await copyToClipboard(code);
+
+                const line = `${currentUsername}\t${password}\t${cleanedKey}`;
+                let content = saveDataEl.textContent.includes('Output will be saved here') ? '' : saveDataEl.textContent.trim() + '\n';
+                content += line;
+                saveDataEl.textContent = content;
+
+                document.getElementById('dataCounter').textContent = content.split('\n').filter(l => l.trim()).length;
+                localStorage.setItem('savedData', content);
+
+                secretInput.value = '';
+                document.getElementById('nameBox').textContent = 'Click for Random BD Name';
+                document.getElementById('usernameBox').textContent = 'Click for Username';
+                currentFullName = '';
+                currentUsername = '';
+
+                showMessage(`✅ Code: ${code} (Copied & Saved)`, "success");
+
+            } catch (err) {
+                console.error('Error:', err.message);
+                showMessage("2FA generation failed. Please try again.", "error");
+                secretInput.value = '';
+            }
+        }
+
+        const debounced2FA = debounce(generate2FA, 400);
+        document.getElementById('secretKey').addEventListener('input', e => debounced2FA(e.target.value));
+
+        window.onload = () => {
+            const saved = localStorage.getItem('savedData');
+            if (saved) {
+                document.getElementById('saveData').textContent = saved;
+                document.getElementById('dataCounter').textContent = saved.split('\n').filter(l => l.trim()).length;
+            }
+        };
+    </script>
+</body>
+</html>
