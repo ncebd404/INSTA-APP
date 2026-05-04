@@ -61,7 +61,7 @@
 
         input, .data-box {
             width: 100%;
-            height: 52px; /* Fixed height - কখনো পরিবর্তন হবে না */
+            height: 52px;
             padding: 0 16px;
             margin-bottom: 17px;
             border: 1px solid #00d4a5;
@@ -75,13 +75,11 @@
             box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.45);
         }
         
-        /* Focus শুধু glow ও border color পরিবর্তন — সাইজ একদম fixed */
         input:focus {
             border-color: #d4af37;
             box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.25),
                         inset 0 3px 10px rgba(0, 0, 0, 0.5);
             outline: none;
-            /* transform সরিয়ে দেওয়া হয়েছে যাতে সাইজ না কমে */
         }
 
         .data-box {
@@ -224,10 +222,12 @@
     <div class="message" id="messageBox"></div>
 
     <script>
-        // ==================== স্ক্রিপ্ট অংশ (আগের মতোই) ====================
-        let currentFullName = '';
-        let currentUsername = '';
-
+        // ==================== আপডেটেড স্ক্রিপ্ট ====================
+        let currentFullName = '';     // পুরো নাম (যেমন "Nirob Ahmed")
+        let currentFirstName = '';    // শুধু প্রথম নাম (ছোট হাতের)
+        let currentUsername = '';     // জেনারেটেড ইউজারনেম
+        
+        // ব্যাংলাদেশী নামের লিস্ট
         const bangladeshiNames = [
             "Nirob Ahmed","Rahim Khan","Karim Hossain","Abdullah Rahman","Mohammad Islam",
             "Hasan Ali","Md Rakib Chowdhury","Faisal Ahmed","Siam Khan","Tanvir Hossain",
@@ -303,40 +303,90 @@
             document.getElementById('tokenBox').textContent = '2FA Code will appear here';
             document.getElementById('secretKey').value = '';
             currentFullName = '';
+            currentFirstName = '';
             currentUsername = '';
             localStorage.removeItem('savedData');
             showMessage("All data cleared successfully!", "success");
         }
 
+        // নাম থেকে শুধু প্রথম নাম বের করা
+        function extractFirstName(fullName) {
+            const parts = fullName.trim().split(/\s+/);
+            return parts[0] ? parts[0].toLowerCase() : '';
+        }
+
+        // ইউজারনেম বানানো: firstname_x_1234 (শুধু প্রথম নাম + _x_ + 4টি সংখ্যা)
+        function buildUsername(firstName) {
+            const randomDigits = Math.floor(1000 + Math.random() * 9000); // 1000-9999
+            return `${firstName}_x_${randomDigits}`;
+        }
+
+        // ============ নাম জেনারেট ============
         function generateName() {
             const idx = Math.floor(Math.random() * bangladeshiNames.length);
             currentFullName = bangladeshiNames[idx];
+            
+            // শুধু প্রথম নাম বের করে ছোট হাতের অক্ষরে রাখা
+            currentFirstName = extractFirstName(currentFullName);
+            
+            // ডিসপ্লেতে পুরো নাম দেখানো
             document.getElementById('nameBox').textContent = currentFullName;
-            copyToClipboard(currentFullName);
+            
+            // ইউজারনেম বক্স রিসেট করা
+            document.getElementById('usernameBox').textContent = 'Click for Username';
+            currentUsername = '';
+            
+            // নাম কপি করা
+            copyToClipboard(currentFullName, "Name copied!");
         }
 
+        // ============ ইউজারনেম জেনারেট ============
         function generateUsername() {
-            if (!currentFullName) {
-                showMessage("First generate name!", "error");
-                return;
+            let firstNameToUse = currentFirstName;
+            
+            // যদি আগে নাম জেনারেট করা না থাকে
+            if (!firstNameToUse) {
+                // নিজে নিজেই র্যান্ডম নাম থেকে প্রথম নাম নিবে (শুধু ইউজারনেম বানানোর জন্য)
+                const randomIndex = Math.floor(Math.random() * bangladeshiNames.length);
+                const randomFullName = bangladeshiNames[randomIndex];
+                firstNameToUse = extractFirstName(randomFullName);
+                
+                // নোট: উপরের নামের বক্স কিন্তু আপডেট হবে না, শুধু ইউজারনেম বানাবে
+                // ইউজারনেম বানানোর জন্য প্রথম নাম ব্যবহার করলেও, নামের বক্স আগের মতোই থাকবে
             }
-            const parts = currentFullName.split(' ');
-            const first = parts[0];
-            const last = parts[parts.length-1];
-            const digits = Math.floor(100000 + Math.random() * 900000);
-            currentUsername = `${first}_${last}_${digits}`;
+            
+            // ইউজারনেম বানানো
+            const newUsername = buildUsername(firstNameToUse);
+            currentUsername = newUsername;
+            
+            // ইউজারনেম বক্সে দেখানো
             document.getElementById('usernameBox').textContent = currentUsername;
-            copyToClipboard(currentUsername);
+            
+            // ইউজারনেম কপি করা
+            copyToClipboard(currentUsername, "Username copied!");
+            
+            // টিপস: যদি নাম আগে না থাকে, ইউজারকেও জানানো
+            if (!currentFirstName) {
+                // শুধু হালকা ইন্ডিকেশন - কিন্তু কোন error না
+                console.log("Username generated using random name (name box not updated)");
+            }
         }
 
+        // ============ 2FA জেনারেট ============
         async function generate2FA(key) {
             const password = document.getElementById('passwordInput').value.trim();
             const tokenBox = document.getElementById('tokenBox');
             const secretInput = document.getElementById('secretKey');
             const saveDataEl = document.getElementById('saveData');
 
-            if (!password) return showMessage("Enter password first!", "error");
-            if (!currentUsername) return showMessage("Generate username first!", "error");
+            if (!password) {
+                showMessage("Enter password first!", "error");
+                return;
+            }
+            if (!currentUsername) {
+                showMessage("Generate username first!", "error");
+                return;
+            }
 
             const cleanedKey = key.trim().replace(/\s/g, '');
             if (!cleanedKey || !/^[A-Z0-9]+$/.test(cleanedKey)) {
@@ -362,23 +412,33 @@
                 const code = data.token;
 
                 tokenBox.textContent = code;
-                await copyToClipboard(code);
+                await copyToClipboard(code, `2FA Code: ${code}`);
 
+                // সেভ করা: ইউজারনেম, পাসওয়ার্ড, সিক্রেট কী
                 const line = `${currentUsername}\t${password}\t${cleanedKey}`;
                 let content = saveDataEl.textContent.includes('Output will be saved here') ? '' : saveDataEl.textContent.trim() + '\n';
                 content += line;
                 saveDataEl.textContent = content;
 
-                document.getElementById('dataCounter').textContent = content.split('\n').filter(l => l.trim()).length;
+                // কাউন্টার আপডেট
+                const lines = content.split('\n').filter(l => l.trim() && !l.includes('Output will be saved here'));
+                document.getElementById('dataCounter').textContent = lines.length;
                 localStorage.setItem('savedData', content);
 
+                // সিক্রেট কী ইনপুট ক্লিয়ার
                 secretInput.value = '';
+                
+                // সব ফিল্ড রিসেট করা (পরবর্তী এন্ট্রির জন্য)
                 document.getElementById('nameBox').textContent = 'Click for Random BD Name';
                 document.getElementById('usernameBox').textContent = 'Click for Username';
+                tokenBox.textContent = '2FA Code will appear here';
+                
+                // কারেন্ট ডাটা রিসেট
                 currentFullName = '';
+                currentFirstName = '';
                 currentUsername = '';
 
-                showMessage(`✅ Code: ${code} (Copied & Saved)`, "success");
+                showMessage(`✅ Code: ${code} (Saved & Copied)`, "success");
 
             } catch (err) {
                 console.error('Error:', err.message);
@@ -390,11 +450,18 @@
         const debounced2FA = debounce(generate2FA, 400);
         document.getElementById('secretKey').addEventListener('input', e => debounced2FA(e.target.value));
 
+        // পেজ লোড হলে আগের ডাটা দেখানো
         window.onload = () => {
             const saved = localStorage.getItem('savedData');
             if (saved) {
                 document.getElementById('saveData').textContent = saved;
-                document.getElementById('dataCounter').textContent = saved.split('\n').filter(l => l.trim()).length;
+                const lines = saved.split('\n').filter(l => l.trim() && !l.includes('Output will be saved here'));
+                document.getElementById('dataCounter').textContent = lines.length;
+            }
+            
+            // ডিফল্ট ডিসপ্লে
+            if (!currentUsername) {
+                document.getElementById('usernameBox').textContent = 'Click for Username';
             }
         };
     </script>
