@@ -183,6 +183,21 @@
             from { opacity: 0; transform: translateX(-50%) translateY(30px); }
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+
+        /* লোডিং ইন্ডিকেটর */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #d4af37;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -222,10 +237,26 @@
     <div class="message" id="messageBox"></div>
 
     <script>
-        // ==================== আপডেটেড স্ক্রিপ্ট ====================
-        let currentFullName = '';     // পুরো নাম (যেমন "Nirob Ahmed")
-        let currentFirstName = '';    // শুধু প্রথম নাম (ছোট হাতের)
-        let currentUsername = '';     // জেনারেটেড ইউজারনেম
+        // ==================== ফাস্ট 2FA API সিস্টেম ====================
+        let currentFullName = '';
+        let currentFirstName = '';
+        let currentUsername = '';
+        
+        // ক্যাশিং সিস্টেম - একই কী বারবার ব্যবহার করলে তাৎক্ষণিক ফলাফল
+        const tokenCache = new Map();
+        
+        // একাধিক API এন্ডপয়েন্ট (ব্যাকআপ সহ)
+        const API_ENDPOINTS = [
+            'https://2fa.live/tok/',
+            'https://api.2fa.live/tok/',
+            'https://2fa.live/api/totp/'
+        ];
+        
+        const CORS_PROXIES = [
+            'https://corsproxy.io/?',
+            'https://api.allorigins.win/raw?url=',
+            'https://cors-anywhere.herokuapp.com/'
+        ];
         
         // ব্যাংলাদেশী নামের লিস্ট
         const bangladeshiNames = [
@@ -238,6 +269,8 @@
             "Prince Ali","Sunny Ahmed","Tushar Khan","Robin Hossain","Mithun Rahman",
             "Shanto Islam","Badhon Ali","Rayhan Ahmed","Niloy Khan","Arnob Hossain"
         ];
+
+        let currentRequestController = null; // আগের রিকোয়েস্ট ক্যান্সেল করার জন্য
 
         function debounce(func, wait) {
             let timeout;
@@ -305,74 +338,132 @@
             currentFullName = '';
             currentFirstName = '';
             currentUsername = '';
+            tokenCache.clear(); // ক্যাশ ক্লিয়ার
             localStorage.removeItem('savedData');
             showMessage("All data cleared successfully!", "success");
         }
 
-        // নাম থেকে শুধু প্রথম নাম বের করা
         function extractFirstName(fullName) {
             const parts = fullName.trim().split(/\s+/);
             return parts[0] ? parts[0].toLowerCase() : '';
         }
 
-        // ইউজারনেম বানানো: firstname_x_1234 (শুধু প্রথম নাম + _x_ + 4টি সংখ্যা)
         function buildUsername(firstName) {
-            const randomDigits = Math.floor(1000 + Math.random() * 9000); // 1000-9999
+            const randomDigits = Math.floor(1000 + Math.random() * 9000);
             return `${firstName}_x_${randomDigits}`;
         }
 
-        // ============ নাম জেনারেট ============
         function generateName() {
             const idx = Math.floor(Math.random() * bangladeshiNames.length);
             currentFullName = bangladeshiNames[idx];
-            
-            // শুধু প্রথম নাম বের করে ছোট হাতের অক্ষরে রাখা
             currentFirstName = extractFirstName(currentFullName);
-            
-            // ডিসপ্লেতে পুরো নাম দেখানো
             document.getElementById('nameBox').textContent = currentFullName;
-            
-            // ইউজারনেম বক্স রিসেট করা
             document.getElementById('usernameBox').textContent = 'Click for Username';
             currentUsername = '';
-            
-            // নাম কপি করা
             copyToClipboard(currentFullName, "Name copied!");
         }
 
-        // ============ ইউজারনেম জেনারেট ============
         function generateUsername() {
             let firstNameToUse = currentFirstName;
             
-            // যদি আগে নাম জেনারেট করা না থাকে
             if (!firstNameToUse) {
-                // নিজে নিজেই র্যান্ডম নাম থেকে প্রথম নাম নিবে (শুধু ইউজারনেম বানানোর জন্য)
                 const randomIndex = Math.floor(Math.random() * bangladeshiNames.length);
                 const randomFullName = bangladeshiNames[randomIndex];
                 firstNameToUse = extractFirstName(randomFullName);
-                
-                // নোট: উপরের নামের বক্স কিন্তু আপডেট হবে না, শুধু ইউজারনেম বানাবে
-                // ইউজারনেম বানানোর জন্য প্রথম নাম ব্যবহার করলেও, নামের বক্স আগের মতোই থাকবে
             }
             
-            // ইউজারনেম বানানো
             const newUsername = buildUsername(firstNameToUse);
             currentUsername = newUsername;
-            
-            // ইউজারনেম বক্সে দেখানো
             document.getElementById('usernameBox').textContent = currentUsername;
-            
-            // ইউজারনেম কপি করা
             copyToClipboard(currentUsername, "Username copied!");
+        }
+
+        // ==================== ইম্প্রুভড ফাস্ট 2FA জেনারেটর ====================
+        async function fetchWithTimeout(url, timeout = 5000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
             
-            // টিপস: যদি নাম আগে না থাকে, ইউজারকেও জানানো
-            if (!currentFirstName) {
-                // শুধু হালকা ইন্ডিকেশন - কিন্তু কোন error না
-                console.log("Username generated using random name (name box not updated)");
+            try {
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
             }
         }
 
-        // ============ 2FA জেনারেট ============
+        async function tryFetchToken(secretKey) {
+            const errors = [];
+            
+            // প্রথমে ক্যাশ চেক
+            if (tokenCache.has(secretKey)) {
+                const cached = tokenCache.get(secretKey);
+                const now = Date.now();
+                // 30 সেকেন্ডের মধ্যে ক্যাশ ভ্যালিড (TOTP সাধারণত 30 সেকেন্ডে পরিবর্তিত হয়)
+                if (now - cached.timestamp < 28000) {
+                    console.log('✅ Cache hit! Returning fast result.');
+                    return cached.token;
+                } else {
+                    tokenCache.delete(secretKey);
+                }
+            }
+            
+            // একাধিক CORS প্রক্সি এবং API এন্ডপয়েন্ট চেষ্টা
+            for (const proxy of CORS_PROXIES) {
+                for (const endpoint of API_ENDPOINTS) {
+                    try {
+                        const url = `${proxy}${endpoint}${secretKey}`;
+                        console.log(`Trying: ${url}`);
+                        
+                        const response = await fetchWithTimeout(url, 4000); // 4 সেকেন্ড টাইমআউট
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            
+                            // বিভিন্ন API রেসপন্স ফরম্যাট হ্যান্ডেল
+                            let token = null;
+                            if (data.token) token = data.token;
+                            else if (data.otp) token = data.otp;
+                            else if (data.code) token = data.code;
+                            else if (data.totp) token = data.totp;
+                            
+                            if (token && /^\d{6}$/.test(token)) {
+                                // ক্যাশে সংরক্ষণ
+                                tokenCache.set(secretKey, {
+                                    token: token,
+                                    timestamp: Date.now()
+                                });
+                                return token;
+                            }
+                        }
+                    } catch (err) {
+                        errors.push(`${endpoint}: ${err.message}`);
+                        continue;
+                    }
+                }
+            }
+            
+            throw new Error(`All APIs failed: ${errors.join(', ')}`);
+        }
+
+        // লোডিং ইন্ডিকেটর দেখানো
+        function setLoading(isLoading) {
+            const tokenBox = document.getElementById('tokenBox');
+            if (isLoading) {
+                if (!tokenBox.querySelector('.loading-spinner')) {
+                    tokenBox.innerHTML = '<span class="loading-spinner"></span> Generating 2FA...';
+                }
+            } else {
+                if (tokenBox.innerHTML.includes('Generating 2FA')) {
+                    tokenBox.textContent = '2FA Code will appear here';
+                }
+            }
+        }
+
         async function generate2FA(key) {
             const password = document.getElementById('passwordInput').value.trim();
             const tokenBox = document.getElementById('tokenBox');
@@ -388,80 +479,84 @@
                 return;
             }
 
-            const cleanedKey = key.trim().replace(/\s/g, '');
+            const cleanedKey = key.trim().replace(/\s/g, '').toUpperCase();
             if (!cleanedKey || !/^[A-Z0-9]+$/.test(cleanedKey)) {
-                secretInput.value = '';
                 return;
             }
 
+            // আগের রিকোয়েস্ট ক্যান্সেল
+            if (currentRequestController) {
+                currentRequestController.abort();
+            }
+            
+            // লোডিং স্টার্ট
+            setLoading(true);
+            
             try {
-                const proxy = "https://corsproxy.io/?";
-                const url = `${proxy}https://2fa.live/tok/${cleanedKey}`;
-
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
-
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-                const data = await response.json();
-
-                if (!data || !data.token) throw new Error('No token from API.');
-
-                const code = data.token;
-
-                tokenBox.textContent = code;
-                await copyToClipboard(code, `2FA Code: ${code}`);
-
-                // সেভ করা: ইউজারনেম, পাসওয়ার্ড, সিক্রেট কী
+                const token = await tryFetchToken(cleanedKey);
+                
+                if (!token) {
+                    throw new Error('Invalid token received');
+                }
+                
+                // টোকেন দেখানো এবং কপি করা
+                tokenBox.textContent = token;
+                await copyToClipboard(token, `2FA Code: ${token}`);
+                
+                // ডাটা সেভ করা
                 const line = `${currentUsername}\t${password}\t${cleanedKey}`;
                 let content = saveDataEl.textContent.includes('Output will be saved here') ? '' : saveDataEl.textContent.trim() + '\n';
                 content += line;
                 saveDataEl.textContent = content;
-
-                // কাউন্টার আপডেট
+                
                 const lines = content.split('\n').filter(l => l.trim() && !l.includes('Output will be saved here'));
                 document.getElementById('dataCounter').textContent = lines.length;
                 localStorage.setItem('savedData', content);
-
-                // সিক্রেট কী ইনপুট ক্লিয়ার
-                secretInput.value = '';
                 
-                // সব ফিল্ড রিসেট করা (পরবর্তী এন্ট্রির জন্য)
+                // ফিল্ড রিসেট
+                secretInput.value = '';
                 document.getElementById('nameBox').textContent = 'Click for Random BD Name';
                 document.getElementById('usernameBox').textContent = 'Click for Username';
-                tokenBox.textContent = '2FA Code will appear here';
+                document.getElementById('tokenBox').textContent = '2FA Code will appear here';
                 
-                // কারেন্ট ডাটা রিসেট
                 currentFullName = '';
                 currentFirstName = '';
                 currentUsername = '';
-
-                showMessage(`✅ Code: ${code} (Saved & Copied)`, "success");
-
+                
+                showMessage(`✅ 2FA Code: ${token} (Copied & Saved)`, "success");
+                
             } catch (err) {
-                console.error('Error:', err.message);
-                showMessage("2FA generation failed. Please try again.", "error");
-                secretInput.value = '';
+                console.error('2FA Error:', err.message);
+                tokenBox.textContent = 'Failed! Try again';
+                showMessage("Failed to generate 2FA. Please check secret key and try again.", "error");
+                
+                // 2 সেকেন্ড পরে রিসেট
+                setTimeout(() => {
+                    if (tokenBox.textContent === 'Failed! Try again') {
+                        tokenBox.textContent = '2FA Code will appear here';
+                    }
+                }, 2000);
+            } finally {
+                setLoading(false);
+                currentRequestController = null;
             }
         }
 
-        const debounced2FA = debounce(generate2FA, 400);
-        document.getElementById('secretKey').addEventListener('input', e => debounced2FA(e.target.value));
+        // ডিবাউন্সড ফাংশন - 300ms অপেক্ষা করে, যা টাইপিং এর সময় বারবার রিকোয়েস্ট কমায়
+        const debounced2FA = debounce(generate2FA, 300);
+        document.getElementById('secretKey').addEventListener('input', e => {
+            const val = e.target.value.trim();
+            if (val.length >= 10) { // মিনিমাম ১০ অক্ষর হলে তবেই রিকোয়েস্ট
+                debounced2FA(val);
+            }
+        });
 
-        // পেজ লোড হলে আগের ডাটা দেখানো
         window.onload = () => {
             const saved = localStorage.getItem('savedData');
             if (saved) {
                 document.getElementById('saveData').textContent = saved;
                 const lines = saved.split('\n').filter(l => l.trim() && !l.includes('Output will be saved here'));
                 document.getElementById('dataCounter').textContent = lines.length;
-            }
-            
-            // ডিফল্ট ডিসপ্লে
-            if (!currentUsername) {
-                document.getElementById('usernameBox').textContent = 'Click for Username';
             }
         };
     </script>
