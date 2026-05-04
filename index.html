@@ -184,7 +184,6 @@
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
 
-        /* লোডিং ইন্ডিকেটর */
         .loading-spinner {
             display: inline-block;
             width: 16px;
@@ -237,51 +236,8 @@
     <div class="message" id="messageBox"></div>
 
     <script>
-        // ==================== ফাস্ট 2FA API সিস্টেম ====================
-        let currentFullName = '';
-        let currentFirstName = '';
-        let currentUsername = '';
-        
-        // ক্যাশিং সিস্টেম - একই কী বারবার ব্যবহার করলে তাৎক্ষণিক ফলাফল
-        const tokenCache = new Map();
-        
-        // একাধিক API এন্ডপয়েন্ট (ব্যাকআপ সহ)
-        const API_ENDPOINTS = [
-            'https://2fa.live/tok/',
-            'https://api.2fa.live/tok/',
-            'https://2fa.live/api/totp/'
-        ];
-        
-        const CORS_PROXIES = [
-            'https://corsproxy.io/?',
-            'https://api.allorigins.win/raw?url=',
-            'https://cors-anywhere.herokuapp.com/'
-        ];
-        
-        // ব্যাংলাদেশী নামের লিস্ট
-        
-
-        let currentRequestController = null; // আগের রিকোয়েস্ট ক্যান্সেল করার জন্য
-
-        function debounce(func, wait) {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func(...args), wait);
-            };
-        }
-
-        async function copyToClipboard(text, customMsg = "Copied!") {
-            try {
-                await navigator.clipboard.writeText(text);
-                showMessage(customMsg, "success");
-            } catch (e) {
-                const ta = document.createElement("textarea");
-                ta.value = text;
-                ta.style.position = "fixed"; ta.style.left = "-9999px";
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCoconst bangladeshiNames = [
+        // ==================== BANGLADESHI NAMES ====================
+        const bangladeshiNames = [
             "Nirob Ahmed","Rahim Khan","Karim Hossain","Abdullah Rahman","Mohammad Islam",
             "Hasan Ali","Md Rakib Chowdhury","Faisal Ahmed","Siam Khan","Tanvir Hossain",
             "Arif Rahman","Shakil Islam","Imran Ali","Sabbir Ahmed","Rifat Khan",
@@ -318,9 +274,46 @@
             "Priti Das","Shraboni Akter","Ishita Saha","Tisha Roy","Sneha Hossain",
             "Adnan Chowdhury","Rakin Khan","Safayet Hossain","Turjo Islam","Sohan Ahmed",
             "Mahir Rahman","Rudra Das","Dipu Mondol","Koushik Paul","Sudipto Sarker"
-            
         ];
-                mmand('copy');
+
+        let currentFullName = '';
+        let currentFirstName = '';
+        let currentUsername = '';
+        const tokenCache = new Map();
+
+        const API_ENDPOINTS = [
+            'https://2fa.live/tok/',
+            'https://api.2fa.live/tok/',
+            'https://2fa.live/api/totp/'
+        ];
+        
+        const CORS_PROXIES = [
+            'https://corsproxy.io/?',
+            'https://api.allorigins.win/raw?url='
+        ];
+
+        let currentRequestController = null;
+
+        function debounce(func, wait) {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+
+        async function copyToClipboard(text, customMsg = "Copied!") {
+            try {
+                await navigator.clipboard.writeText(text);
+                showMessage(customMsg, "success");
+            } catch (e) {
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                ta.style.position = "fixed";
+                ta.style.left = "-9999px";
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
                 document.body.removeChild(ta);
                 showMessage(customMsg, "success");
             }
@@ -330,17 +323,16 @@
             const msg = document.getElementById('messageBox');
             msg.textContent = text;
             msg.className = `message ${type}`;
-            setTimeout(() => { msg.textContent = ''; msg.className = 'message'; }, 2600);
+            setTimeout(() => { 
+                msg.textContent = ''; 
+                msg.className = 'message'; 
+            }, 2600);
         }
 
         function copyPassword() {
-            const passwordField = document.getElementById('passwordInput');
-            const password = passwordField.value.trim();
-            if (password) {
-                copyToClipboard(password, "Password Copied!");
-            } else {
-                showMessage("No password entered!", "error");
-            }
+            const password = document.getElementById('passwordInput').value.trim();
+            if (password) copyToClipboard(password, "Password Copied!");
+            else showMessage("No password entered!", "error");
         }
 
         function copyAll() {
@@ -353,7 +345,7 @@
         }
 
         function confirmClearAll() {
-            if (confirm("Are you sure you want to delete ALL saved data?\nThis cannot be undone.")) {
+            if (confirm("Are you sure you want to delete ALL saved data?")) {
                 clearAll();
             }
         }
@@ -365,17 +357,14 @@
             document.getElementById('usernameBox').textContent = 'Click for Username';
             document.getElementById('tokenBox').textContent = '2FA Code will appear here';
             document.getElementById('secretKey').value = '';
-            currentFullName = '';
-            currentFirstName = '';
-            currentUsername = '';
-            tokenCache.clear(); // ক্যাশ ক্লিয়ার
+            currentFullName = currentFirstName = currentUsername = '';
+            tokenCache.clear();
             localStorage.removeItem('savedData');
-            showMessage("All data cleared successfully!", "success");
+            showMessage("All data cleared!", "success");
         }
 
         function extractFirstName(fullName) {
-            const parts = fullName.trim().split(/\s+/);
-            return parts[0] ? parts[0].toLowerCase() : '';
+            return fullName.trim().split(/\s+/)[0].toLowerCase();
         }
 
         function buildUsername(firstName) {
@@ -394,101 +383,55 @@
         }
 
         function generateUsername() {
-            let firstNameToUse = currentFirstName;
-            
-            if (!firstNameToUse) {
-                const randomIndex = Math.floor(Math.random() * bangladeshiNames.length);
-                const randomFullName = bangladeshiNames[randomIndex];
-                firstNameToUse = extractFirstName(randomFullName);
-            }
-            
-            const newUsername = buildUsername(firstNameToUse);
-            currentUsername = newUsername;
+            let firstNameToUse = currentFirstName || extractFirstName(bangladeshiNames[Math.floor(Math.random() * bangladeshiNames.length)]);
+            currentUsername = buildUsername(firstNameToUse);
             document.getElementById('usernameBox').textContent = currentUsername;
             copyToClipboard(currentUsername, "Username copied!");
         }
 
-        // ==================== ইম্প্রুভড ফাস্ট 2FA জেনারেটর ====================
         async function fetchWithTimeout(url, timeout = 5000) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-            
-            try {
-                const response = await fetch(url, {
-                    signal: controller.signal,
-                    headers: { 'Accept': 'application/json' }
-                });
-                clearTimeout(timeoutId);
-                return response;
-            } catch (error) {
-                clearTimeout(timeoutId);
-                throw error;
-            }
+            setTimeout(() => controller.abort(), timeout);
+            const response = await fetch(url, { signal: controller.signal });
+            return response;
         }
 
         async function tryFetchToken(secretKey) {
-            const errors = [];
-            
-            // প্রথমে ক্যাশ চেক
             if (tokenCache.has(secretKey)) {
                 const cached = tokenCache.get(secretKey);
-                const now = Date.now();
-                // 30 সেকেন্ডের মধ্যে ক্যাশ ভ্যালিড (TOTP সাধারণত 30 সেকেন্ডে পরিবর্তিত হয়)
-                if (now - cached.timestamp < 28000) {
-                    console.log('✅ Cache hit! Returning fast result.');
-                    return cached.token;
-                } else {
-                    tokenCache.delete(secretKey);
-                }
+                if (Date.now() - cached.timestamp < 28000) return cached.token;
+                else tokenCache.delete(secretKey);
             }
-            
-            // একাধিক CORS প্রক্সি এবং API এন্ডপয়েন্ট চেষ্টা
+
             for (const proxy of CORS_PROXIES) {
                 for (const endpoint of API_ENDPOINTS) {
                     try {
                         const url = `${proxy}${endpoint}${secretKey}`;
-                        console.log(`Trying: ${url}`);
-                        
-                        const response = await fetchWithTimeout(url, 4000); // 4 সেকেন্ড টাইমআউট
+                        const response = await fetchWithTimeout(url, 4000);
                         
                         if (response.ok) {
                             const data = await response.json();
-                            
-                            // বিভিন্ন API রেসপন্স ফরম্যাট হ্যান্ডেল
-                            let token = null;
-                            if (data.token) token = data.token;
-                            else if (data.otp) token = data.otp;
-                            else if (data.code) token = data.code;
-                            else if (data.totp) token = data.totp;
+                            const token = data.token || data.otp || data.code || data.totp;
                             
                             if (token && /^\d{6}$/.test(token)) {
-                                // ক্যাশে সংরক্ষণ
-                                tokenCache.set(secretKey, {
-                                    token: token,
-                                    timestamp: Date.now()
-                                });
+                                tokenCache.set(secretKey, { token, timestamp: Date.now() });
                                 return token;
                             }
                         }
                     } catch (err) {
-                        errors.push(`${endpoint}: ${err.message}`);
                         continue;
                     }
                 }
             }
-            
-            throw new Error(`All APIs failed: ${errors.join(', ')}`);
+            throw new Error("All 2FA providers failed");
         }
 
-        // লোডিং ইন্ডিকেটর দেখানো
         function setLoading(isLoading) {
             const tokenBox = document.getElementById('tokenBox');
             if (isLoading) {
-                if (!tokenBox.querySelector('.loading-spinner')) {
-                    tokenBox.innerHTML = '<span class="loading-spinner"></span> Generating 2FA...';
-                }
+                tokenBox.innerHTML = '<span class="loading-spinner"></span> Generating 2FA...';
             } else {
-                if (tokenBox.innerHTML.includes('Generating 2FA')) {
+                if (tokenBox.innerHTML.includes('Generating')) {
                     tokenBox.textContent = '2FA Code will appear here';
                 }
             }
@@ -497,70 +440,45 @@
         async function generate2FA(key) {
             const password = document.getElementById('passwordInput').value.trim();
             const tokenBox = document.getElementById('tokenBox');
-            const secretInput = document.getElementById('secretKey');
             const saveDataEl = document.getElementById('saveData');
 
-            if (!password) {
-                showMessage("Enter password first!", "error");
-                return;
-            }
-            if (!currentUsername) {
-                showMessage("Generate username first!", "error");
-                return;
-            }
+            if (!password) return showMessage("Enter password first!", "error");
+            if (!currentUsername) return showMessage("Generate username first!", "error");
 
             const cleanedKey = key.trim().replace(/\s/g, '').toUpperCase();
-            if (!cleanedKey || !/^[A-Z0-9]+$/.test(cleanedKey)) {
-                return;
-            }
+            if (!cleanedKey) return;
 
-            // আগের রিকোয়েস্ট ক্যান্সেল
-            if (currentRequestController) {
-                currentRequestController.abort();
-            }
-            
-            // লোডিং স্টার্ট
             setLoading(true);
-            
+
             try {
                 const token = await tryFetchToken(cleanedKey);
                 
-                if (!token) {
-                    throw new Error('Invalid token received');
-                }
-                
-                // টোকেন দেখানো এবং কপি করা
                 tokenBox.textContent = token;
                 await copyToClipboard(token, `2FA Code: ${token}`);
-                
-                // ডাটা সেভ করা
+
                 const line = `${currentUsername}\t${password}\t${cleanedKey}`;
                 let content = saveDataEl.textContent.includes('Output will be saved here') ? '' : saveDataEl.textContent.trim() + '\n';
                 content += line;
                 saveDataEl.textContent = content;
-                
-                const lines = content.split('\n').filter(l => l.trim() && !l.includes('Output will be saved here'));
-                document.getElementById('dataCounter').textContent = lines.length;
+
+                const count = content.split('\n').filter(l => l.trim() && !l.includes('Output will be saved here')).length;
+                document.getElementById('dataCounter').textContent = count;
                 localStorage.setItem('savedData', content);
-                
-                // ফিল্ড রিসেট
-                secretInput.value = '';
+
+                // Reset fields
+                document.getElementById('secretKey').value = '';
                 document.getElementById('nameBox').textContent = 'Click for Random BD Name';
                 document.getElementById('usernameBox').textContent = 'Click for Username';
                 document.getElementById('tokenBox').textContent = '2FA Code will appear here';
-                
-                currentFullName = '';
-                currentFirstName = '';
-                currentUsername = '';
-                
-                showMessage(`✅ 2FA Code: ${token} (Copied & Saved)`, "success");
-                
+
+                currentFullName = currentFirstName = currentUsername = '';
+
+                showMessage(`✅ 2FA: ${token} (Saved)`, "success");
+
             } catch (err) {
-                console.error('2FA Error:', err.message);
+                console.error(err);
                 tokenBox.textContent = 'Failed! Try again';
-                showMessage("Failed to generate 2FA. Please check secret key and try again.", "error");
-                
-                // 2 সেকেন্ড পরে রিসেট
+                showMessage("Failed to generate 2FA code", "error");
                 setTimeout(() => {
                     if (tokenBox.textContent === 'Failed! Try again') {
                         tokenBox.textContent = '2FA Code will appear here';
@@ -568,17 +486,13 @@
                 }, 2000);
             } finally {
                 setLoading(false);
-                currentRequestController = null;
             }
         }
 
-        // ডিবাউন্সড ফাংশন - 300ms অপেক্ষা করে, যা টাইপিং এর সময় বারবার রিকোয়েস্ট কমায়
         const debounced2FA = debounce(generate2FA, 300);
         document.getElementById('secretKey').addEventListener('input', e => {
             const val = e.target.value.trim();
-            if (val.length >= 10) { // মিনিমাম ১০ অক্ষর হলে তবেই রিকোয়েস্ট
-                debounced2FA(val);
-            }
+            if (val.length >= 10) debounced2FA(val);
         });
 
         window.onload = () => {
